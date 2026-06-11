@@ -3,7 +3,7 @@
 An interactive, hyper-accurate rolling calculator for **Teamfight Tactics (Set 17: Space Gods)**. This tool uses a dynamic JavaScript Monte Carlo simulation (10,000 iterations) to accurately predict your odds of hitting specific unit counts while factoring in shared champion pool depletion in real-time.
 
 ## 🚀 Live Demo
-**[Click here to use the calculator](https://fpadcha-lab.github.io/tft-calculator/)
+**[Click here to use the calculator](https://fpadcha-lab.github.io/tft-calculator/)**
 
 ## 🛠️ Features
 - **Accurate Shared Pool Math:** Simulates actual TFT bag sizes and pool shrinking as players hold units.
