@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TFT Roll Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0d1117; }
+    ::-webkit-scrollbar-thumb { background: #21262d; border-radius: 3px; }
+    body { background: #0d1117; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp 0.3s ease forwards; }
+    @keyframes rotate { to { transform: rotate(360deg); } }
+    .spin { animation: rotate 0.75s linear infinite; }
+    .bar-fill { transition: width 0.65s cubic-bezier(0.4,0,0.2,1); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+<div class="max-w-6xl mx-auto px-4 py-8">
+
+  <!-- ═══════════════════════════════
+       HEADER
+  ═══════════════════════════════ -->
+  <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-3xl font-black tracking-tight">
+        <span class="text-yellow-400">TFT</span><span class="text-white"> Roll Calculator</span>
+      </h1>
+      <p class="text-xs text-gray-600 mt-0.5">Monte Carlo · 10,000 iterations · Shared-pool depletion model</p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <label class="text-xs text-gray-500 font-medium">Set</label>
+      <select id="setSelect"
+        class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-yellow-500 cursor-pointer transition-colors">
+        <option value="set_17">Set 17</option>
+        <option value="set_18" disabled>Set 18 — Coming Soon</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════
+       MAIN GRID
+  ═══════════════════════════════ -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+    <!-- ─────────────────────────────
+         LEFT PANEL — Inputs
+    ───────────────────────────── -->
+    <aside class="lg:col-span-4 flex flex-col gap-4">
+
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-5">Configuration</p>
+
+        <!-- Level -->
+        <div class="mb-5">
+          <label class="block text-xs text-gray-400 mb-1.5">Player Level</label>
+          <select id="levelSelect"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-yellow-500 cursor-pointer transition-colors">
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+            <option value="4">Level 4</option>
+            <option value="5">Level 5</option>
+            <option value="6">Level 6</option>
+            <option value="7" selected>Level 7</option>
+            <option value="8">Level 8</option>
+            <option value="9">Level 9</option>
+            <option value="10">Level 10</option>
+          </select>
+        </div>
+
+        <!-- Unit Cost -->
+        <div class="mb-5">
+          <label class="block text-xs text-gray-400 mb-1.5">Unit Cost</label>
+          <div id="costBtnRow" class="grid grid-cols-5 gap-1.5"></div>
+        </div>
+
+        <!-- Gold -->
+        <div class="mb-5">
+          <label class="block text-xs text-gray-400 mb-1.5">
+            Gold Available
+            <span class="text-gray-700 ml-1 font-normal">2g per roll</span>
+          </label>
+          <div class="relative">
+            <input type="number" id="goldInput" value="50" min="2" max="2000" step="2"
+              class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-100 pr-24 focus:outline-none focus:border-yellow-500 transition-colors" />
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600 pointer-events-none">
+              = <span id="rollsLabel" class="text-yellow-400 font-bold">25</span> rolls
+            </span>
+          </div>
+        </div>
+
+        <!-- Target Copies -->
+        <div class="mb-5">
+          <label class="block text-xs text-gray-400 mb-1.5">Target Copies</label>
+          <div class="grid grid-cols-3 gap-1.5 mb-2">
+            <button onclick="document.getElementById('targetInput').value=1"
+              class="py-1.5 text-xs rounded-lg bg-gray-800 border border-gray-700 text-gray-500 hover:text-gray-200 hover:border-gray-600 transition-all">
+              1 copy
+            </button>
+            <button onclick="document.getElementById('targetInput').value=3"
+              class="py-1.5 text-xs rounded-lg bg-gray-800 border border-gray-700 text-gray-500 hover:text-gray-200 hover:border-gray-600 transition-all">
+              3 → 2★
+            </button>
+            <button onclick="document.getElementById('targetInput').value=9"
+              class="py-1.5 text-xs rounded-lg bg-gray-800 border border-gray-700 text-gray-500 hover:text-gray-200 hover:border-gray-600 transition-all">
+              9 → 3★
+            </button>
+          </div>
+          <input type="number" id="targetInput" value="3" min="1" max="10"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-yellow-500 transition-colors" />
+        </div>
+
+        <!-- Copies Out -->
+        <div class="mb-5">
+          <label class="block text-xs text-gray-400 mb-1.5">Target unit copies already out of pool</label>
+          <input type="number" id="copiesOutInput" value="0" min="0" max="29"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-yellow-500 transition-colors" />
+          <p class="text-[10px] text-gray-700 mt-1">Owned by you or other players</p>
+        </div>
+
+        <!-- Others Out -->
+        <div>
+          <label class="block text-xs text-gray-400 mb-1.5">Other same-cost copies out of pool</label>
+          <input type="number" id="othersOutInput" value="0" min="0" max="2000"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-yellow-500 transition-colors" />
+          <p class="text-[10px] text-gray-700 mt-1">All other units of this cost tier combined</p>
+        </div>
+      </div>
+
+      <!-- Pool info pill -->
+      <div id="poolInfoCard" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 text-xs"></div>
+
+      <!-- Simulate button -->
+      <button id="simBtn" onclick="startSimulation()"
+        class="w-full py-4 bg-yellow-500 hover:bg-yellow-400 active:scale-[0.98] text-gray-950 font-black rounded-2xl transition-all text-sm tracking-widest uppercase shadow-lg shadow-yellow-900/20">
+        Simulate
+      </button>
+
+    </aside>
+
+    <!-- ─────────────────────────────
+         RIGHT PANEL — Results
+    ───────────────────────────── -->
+    <main class="lg:col-span-8 flex flex-col gap-4">
+
+      <!-- Main probability card -->
+      <div id="mainCard" class="bg-gray-900 border border-gray-800 rounded-2xl p-6 min-h-[240px] flex items-center justify-center">
+        <div class="text-center text-gray-700">
+          <div class="text-5xl mb-3 select-none">🎲</div>
+          <p class="text-sm">Set your parameters and click <span class="text-yellow-500">Simulate</span></p>
+        </div>
+      </div>
+
+      <!-- Gold variance table -->
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-4">Gold Variance — ±10 &amp; ±20</p>
+        <div id="varianceTable">
+          <p class="text-xs text-gray-700 text-center py-4">Run a simulation to see variance data.</p>
+        </div>
+      </div>
+
+      <!-- Probability curve chart -->
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-4">Cumulative Probability Curve</p>
+        <div style="position:relative;height:210px;">
+          <canvas id="probChart"></canvas>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════
+       LEVEL ODDS REFERENCE TABLE
+  ═══════════════════════════════ -->
+  <section class="mt-5 bg-gray-900 border border-gray-800 rounded-2xl p-5">
+    <p class="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-4">
+      Shop Odds Reference — <span id="oddsSetLabel" class="text-gray-500 font-normal normal-case"></span>
+    </p>
+    <div id="oddsTable" class="overflow-x-auto"></div>
+  </section>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════ -->
+<script>
+// ─────────────────────────────────────────────────────────────
+// GAME DATA
+// ─────────────────────────────────────────────────────────────
+
+const GAME_DATA = {
+
+  // ── SET 17 ────────────────────────────────────────────────────────────────
+  set_17: {
+    name: "Set 17",
+
+    // Total copies of a single champion that exist in the shared pool.
+    poolSizes: {
+      1: 29,
+      2: 22,
+      3: 18,
+      4: 10,
+      5: 9,
+    },
+
+    // How many distinct champions exist at each cost tier.
+    // Used to compute total pool size per tier.
+    // NOT exposed as a user input — read internally only.
+    uniqueChamps: {
+      1: 14,
+      2: 13,
+      3: 13,
+      4: 13,
+      5: 10,
+    },
+
+    // P(a single shop slot draws from this cost tier) at each level.
+    // levelOdds[level] = [p1cost, p2cost, p3cost, p4cost, p5cost]
+    // Levels 2–10 only. Level 11 is not present in this application.
+    levelOdds: {
+      2:  [1.00, 0.00, 0.00, 0.00, 0.00],
+      3:  [0.75, 0.25, 0.00, 0.00, 0.00],
+      4:  [0.55, 0.30, 0.15, 0.00, 0.00],
+      5:  [0.45, 0.33, 0.20, 0.02, 0.00],
+      6:  [0.35, 0.35, 0.25, 0.05, 0.00],
+      7:  [0.19, 0.35, 0.30, 0.15, 0.01],
+      8:  [0.18, 0.25, 0.32, 0.22, 0.03],
+      9:  [0.15, 0.20, 0.25, 0.30, 0.10],
+      10: [0.05, 0.10, 0.20, 0.40, 0.25],
+    },
+  },
+
+  // ── SET 18 PLACEHOLDER ────────────────────────────────────────────────────
+  // Uncomment and populate when patch notes are available.
+  // The application math will dynamically switch to this data
+  // the moment the set_18 option is selected in the dropdown.
+  /*
+  set_18: {
+    name: "Set 18",
+    poolSizes: {
+      1: null,
+      2: null,
+      3: null,
+      4: null,
+      5: null,
+    },
+    uniqueChamps: {
+      1: null,
+      2: null,
+      3: null,
+      4: null,
+      5: null,
+    },
+    levelOdds: {
+      2:  [null, null, null, null, null],
+      3:  [null, null, null, null, null],
+      4:  [null, null, null, null, null],
+      5:  [null, null, null, null, null],
+      6:  [null, null, null, null, null],
+      7:  [null, null, null, null, null],
+      8:  [null, null, null, null, null],
+      9:  [null, null, null, null, null],
+      10: [null, null, null, null, null],
+    },
+  },
+  */
+
+};
+
+// ─────────────────────────────────────────────────────────────
+// SESSION STATE
+// ─────────────────────────────────────────────────────────────
+
+let activeCost    = 3;
+let chartInstance = null;
+
+// ─────────────────────────────────────────────────────────────
+// SIMULATION ENGINE
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * runSimulation
+ *
+ * Runs 10,000 independent Monte Carlo iterations modelling TFT's
+ * shared-pool shop mechanic from first principles.
+ *
+ * POOL MODEL:
+ *   The shared pool for the selected cost tier begins each iteration at:
+ *     targetRemaining = poolSizes[cost] - copiesOut
+ *     othersRemaining = poolSizes[cost] * (uniqueChamps[cost] - 1) - othersOut
+ *     totalRemaining  = targetRemaining + othersRemaining
+ *
+ *   Each roll comprises 5 independent slots. For every slot:
+ *     1. TIER CHECK — draw a uniform random [0,1).
+ *        If it is >= tierOdds for the target cost, this slot lands on a
+ *        different tier and produces nothing useful. Continue to next slot.
+ *
+ *     2. UNIT DRAW — draw a uniform random [0, totalRemaining).
+ *        If the result < targetRemaining: the target unit appeared.
+ *          → We buy it. Decrement both targetRemaining and totalRemaining.
+ *          → Increment the collected counter.
+ *          → If collected >= target: record the success roll and end this iter.
+ *        Otherwise: a non-target unit appeared in the slot.
+ *          → We pass on it. It cycles back into the pool on the next reroll.
+ *          → No pool state changes for non-target units.
+ *
+ * SINGLE-PASS EFFICIENCY:
+ *   The simulation runs to maxRolls = floor((gold + 20) / 2) in one pass,
+ *   recording firstSuccessAtRoll[r] for each iteration. A cumulative curve
+ *   is then built so the main result AND all ±10/±20 gold variants can be
+ *   read from the same array at O(1) cost without re-running the simulation.
+ *
+ * @param {string}  setKey     Active set key, e.g. "set_17"
+ * @param {number}  level      Player level (2–10)
+ * @param {number}  cost       Unit cost tier (1–5)
+ * @param {number}  maxGold    Upper bound of gold range (gold + 20)
+ * @param {number}  target     Number of copies needed for success
+ * @param {number}  copiesOut  Copies of the target unit already removed from pool
+ * @param {number}  othersOut  Copies of all other same-cost units already removed
+ * @returns {Float64Array}     cumProb where cumProb[r] = P(success by roll r)
+ */
+function runSimulation(setKey, level, cost, maxGold, target, copiesOut, othersOut) {
+  const ITERATIONS = 10_000;
+
+  const setData    = GAME_DATA[setKey];
+  const poolSize   = setData.poolSizes[cost];
+  const numUnique  = setData.uniqueChamps[cost];
+  const tierOdds   = setData.levelOdds[level][cost - 1];
+  const maxRolls   = Math.floor(maxGold / 2);
+
+  const initTarget = Math.max(0, poolSize - copiesOut);
+  const initOthers = Math.max(0, poolSize * (numUnique - 1) - othersOut);
+
+  // firstSuccessAtRoll[r] counts how many iterations first succeeded on roll r.
+  const firstSuccessAtRoll = new Uint32Array(maxRolls + 1);
+
+  for (let iter = 0; iter < ITERATIONS; iter++) {
+    let collected   = 0;
+    let tRemain     = initTarget;
+    let totalRemain = tRemain + initOthers;
+
+    iterLoop:
+    for (let roll = 1; roll <= maxRolls; roll++) {
+      for (let slot = 0; slot < 5; slot++) {
+
+        // Step 1 — Tier check
+        if (Math.random() >= tierOdds) continue;
+
+        // Step 2 — Unit draw from tier pool
+        if (tRemain <= 0 || totalRemain <= 0) continue;
+
+        if (Math.random() * totalRemain < tRemain) {
+          // Target unit found and purchased
+          tRemain--;
+          totalRemain--;
+          collected++;
+          if (collected >= target) {
+            firstSuccessAtRoll[roll]++;
+            break iterLoop;
+          }
+        }
+        // Non-target unit recycles back — no state change
+      }
+    }
+  }
+
+  // Build cumulative probability curve: cumProb[r] = P(success within r rolls)
+  const cumProb = new Float64Array(maxRolls + 1);
+  let running = 0;
+  for (let r = 1; r <= maxRolls; r++) {
+    running += firstSuccessAtRoll[r];
+    cumProb[r] = running / ITERATIONS;
+  }
+
+  return cumProb;
+}
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+
+function activeSetData() {
+  return GAME_DATA[document.getElementById('setSelect').value];
+}
+
+function activeSetKey() {
+  return document.getElementById('setSelect').value;
+}
+
+function probToHex(p) {
+  if (p >= 0.80) return '#4ade80';
+  if (p >= 0.60) return '#facc15';
+  if (p >= 0.35) return '#fb923c';
+  return '#f87171';
+}
+
+function probToLabel(p) {
+  if (p >= 0.95) return { text: 'Near Certain',  tw: 'text-green-400' };
+  if (p >= 0.80) return { text: 'Very Likely',   tw: 'text-green-500' };
+  if (p >= 0.60) return { text: 'Likely',        tw: 'text-yellow-400' };
+  if (p >= 0.35) return { text: 'Possible',      tw: 'text-orange-400' };
+  if (p >= 0.15) return { text: 'Unlikely',      tw: 'text-red-400' };
+  return               { text: 'Very Unlikely',  tw: 'text-red-500' };
+}
+
+function probToGlow(p) {
+  if (p >= 0.80) return '0 0 50px rgba(74,222,128,0.12)';
+  if (p >= 0.60) return '0 0 50px rgba(250,204,21,0.12)';
+  if (p >= 0.35) return '0 0 50px rgba(251,146,60,0.12)';
+  return '0 0 50px rgba(248,113,113,0.12)';
+}
+
+function clampLookup(cumProb, rolls) {
+  const idx = Math.max(0, Math.min(rolls, cumProb.length - 1));
+  return cumProb[idx] || 0;
+}
+
+// ─────────────────────────────────────────────────────────────
+// COST BUTTON RENDER
+// ─────────────────────────────────────────────────────────────
+
+const COST_STYLES = {
+  1: { active: 'bg-gray-500 border-gray-400 text-white',     idle: 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300' },
+  2: { active: 'bg-blue-600 border-blue-500 text-white',     idle: 'bg-gray-800 border-gray-700 text-gray-500 hover:border-blue-700 hover:text-blue-300' },
+  3: { active: 'bg-yellow-600 border-yellow-500 text-white', idle: 'bg-gray-800 border-gray-700 text-gray-500 hover:border-yellow-700 hover:text-yellow-300' },
+  4: { active: 'bg-purple-600 border-purple-500 text-white', idle: 'bg-gray-800 border-gray-700 text-gray-500 hover:border-purple-700 hover:text-purple-300' },
+  5: { active: 'bg-amber-400 border-amber-300 text-gray-900',idle: 'bg-gray-800 border-gray-700 text-gray-500 hover:border-amber-600 hover:text-amber-300' },
+};
+
+function renderCostButtons() {
+  const row = document.getElementById('costBtnRow');
+  row.innerHTML = '';
+  for (let c = 1; c <= 5; c++) {
+    const s   = COST_STYLES[c];
+    const btn = document.createElement('button');
+    btn.textContent = `${c}g`;
+    btn.className   = `py-2 rounded-xl text-xs font-bold border transition-all ${c === activeCost ? s.active : s.idle}`;
+    btn.onclick     = () => { activeCost = c; renderCostButtons(); renderPoolInfo(); };
+    row.appendChild(btn);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// POOL INFO CARD
+// ─────────────────────────────────────────────────────────────
+
+function renderPoolInfo() {
+  const sd      = activeSetData();
+  const cost    = activeCost;
+  const ps      = sd.poolSizes[cost];
+  const uc      = sd.uniqueChamps[cost];
+  const total   = ps * uc;
+  const costMap = { 1:'1-Cost', 2:'2-Cost', 3:'3-Cost', 4:'4-Cost', 5:'5-Cost' };
+
+  document.getElementById('poolInfoCard').innerHTML = `
+    <div class="flex flex-col gap-1.5 text-xs">
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600">Tier</span>
+        <span class="text-gray-400 font-medium">${costMap[cost]} · ${sd.name}</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600">Copies per champion</span>
+        <span class="text-gray-400 font-medium">${ps}</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600">Unique champions</span>
+        <span class="text-gray-400 font-medium">${uc}</span>
+      </div>
+      <div class="flex justify-between items-center border-t border-gray-800 pt-1.5 mt-0.5">
+        <span class="text-gray-500">Total pool size</span>
+        <span class="text-yellow-500/80 font-bold">${total} copies</span>
+      </div>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER: MAIN RESULT CARD
+// ─────────────────────────────────────────────────────────────
+
+function renderMainCard(p, params) {
+  const sd        = GAME_DATA[params.setKey];
+  const poolSize  = sd.poolSizes[params.cost];
+  const numUnique = sd.uniqueChamps[params.cost];
+  const tierOdds  = sd.levelOdds[params.level][params.cost - 1];
+  const initT     = Math.max(0, poolSize - params.copiesOut);
+  const initO     = Math.max(0, poolSize * (numUnique - 1) - params.othersOut);
+  const totalInit = initT + initO;
+
+  // Per-slot probability at iteration start (j=0 copies collected)
+  const pSlot    = totalInit > 0 ? tierOdds * initT / totalInit : 0;
+  // P(at least 1 hit per 5-slot roll) at initial pool state
+  const pPerRoll = 1 - Math.pow(1 - pSlot, 5);
+
+  const label    = probToLabel(p);
+  const hex      = probToHex(p);
+  const glow     = probToGlow(p);
+  const barPct   = Math.round(p * 100);
+  const costNames = { 1:'1-Cost', 2:'2-Cost', 3:'3-Cost', 4:'4-Cost', 5:'5-Cost' };
+
+  document.getElementById('mainCard').style.boxShadow = glow;
+  document.getElementById('mainCard').innerHTML = `
+    <div class="w-full fade-up">
+
+      <div class="text-center mb-6">
+        <p class="text-[11px] text-gray-600 mb-2 tracking-wide">
+          P(collect ≥${params.target} ${costNames[params.cost]} copies · Level ${params.level} · ${params.gold}g)
+        </p>
+        <div class="text-8xl leading-none font-black mb-2 tabular-nums" style="color:${hex}">
+          ${(p * 100).toFixed(1)}%
+        </div>
+        <span class="text-sm font-semibold ${label.tw}">${label.text}</span>
+      </div>
+
+      <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden mb-6">
+        <div class="h-2 rounded-full bar-fill" style="width:${barPct}%;background:${hex}"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-gray-800/70 rounded-xl p-3 text-center">
+          <p class="text-[10px] text-gray-600 mb-1">Tier odds / slot</p>
+          <p class="text-base font-bold text-blue-400">${(tierOdds * 100).toFixed(0)}%</p>
+          <p class="text-[10px] text-gray-700 mt-0.5">at Level ${params.level}</p>
+        </div>
+        <div class="bg-gray-800/70 rounded-xl p-3 text-center">
+          <p class="text-[10px] text-gray-600 mb-1">Unit odds / slot</p>
+          <p class="text-base font-bold text-purple-400">${(pSlot * 100).toFixed(2)}%</p>
+          <p class="text-[10px] text-gray-700 mt-0.5">initial pool state</p>
+        </div>
+        <div class="bg-gray-800/70 rounded-xl p-3 text-center">
+          <p class="text-[10px] text-gray-600 mb-1">Hit ≥1 / roll</p>
+          <p class="text-base font-bold text-yellow-400">${(pPerRoll * 100).toFixed(1)}%</p>
+          <p class="text-[10px] text-gray-700 mt-0.5">5-slot refresh</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER: GOLD VARIANCE TABLE
+// ─────────────────────────────────────────────────────────────
+
+function renderVarianceTable(cumProb, params) {
+  const mainRolls = Math.floor(params.gold / 2);
+  const mainProb  = clampLookup(cumProb, mainRolls);
+
+  // The five scenarios: -20g, -10g, main, +10g, +20g
+  const scenarios = [
+    { goldOffset: -20 },
+    { goldOffset: -10 },
+    { goldOffset:   0 },   // ← main
+    { goldOffset: +10 },
+    { goldOffset: +20 },
+  ];
+
+  let rows = '';
+  for (const s of scenarios) {
+    const g       = params.gold + s.goldOffset;
+    const rolls   = Math.floor(g / 2);
+    const isMain  = s.goldOffset === 0;
+    const invalid = g < 2;
+    const prob    = invalid ? null : clampLookup(cumProb, rolls);
+    const delta   = (prob === null || isMain) ? null : prob - mainProb;
+
+    const goldCell  = `<span class="${isMain ? 'text-yellow-400 font-bold' : 'text-gray-300'}">${g}g</span>`;
+    const tagCell   = isMain
+      ? `<span class="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded px-1.5 py-0.5 font-medium">Your Gold</span>`
+      : s.goldOffset > 0
+        ? `<span class="text-[10px] text-gray-600">+${s.goldOffset}g</span>`
+        : `<span class="text-[10px] text-gray-600">${s.goldOffset}g</span>`;
+    const rollCell  = `<span class="text-gray-600">${invalid ? '—' : rolls}</span>`;
+    const probCell  = prob === null
+      ? `<span class="text-gray-700">—</span>`
+      : `<span class="font-bold text-sm" style="color:${probToHex(prob)}">${(prob * 100).toFixed(1)}%</span>`;
+    const deltaCell = delta === null
+      ? `<span class="text-gray-700">—</span>`
+      : delta > 0
+        ? `<span class="text-green-500 text-xs font-medium">+${(delta * 100).toFixed(1)}%</span>`
+        : `<span class="text-red-500 text-xs font-medium">${(delta * 100).toFixed(1)}%</span>`;
+
+    const rowClass = isMain
+      ? 'bg-gray-800/40 border-l-2 border-yellow-500'
+      : 'border-l-2 border-transparent hover:bg-gray-800/20';
+
+    rows += `
+      <tr class="${rowClass} transition-colors">
+        <td class="py-3 px-4 font-mono text-sm">${goldCell}</td>
+        <td class="py-3 px-4">${tagCell}</td>
+        <td class="py-3 px-4 text-right text-xs">${rollCell}</td>
+        <td class="py-3 px-4 text-right">${probCell}</td>
+        <td class="py-3 px-4 text-right">${deltaCell}</td>
+      </tr>`;
+  }
+
+  document.getElementById('varianceTable').innerHTML = `
+    <div class="overflow-x-auto fade-up">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-800">
+            <th class="text-left py-2 px-4 text-[10px] text-gray-600 font-semibold uppercase tracking-widest">Gold</th>
+            <th class="text-left py-2 px-4 text-[10px] text-gray-600 font-semibold uppercase tracking-widest">Scenario</th>
+            <th class="text-right py-2 px-4 text-[10px] text-gray-600 font-semibold uppercase tracking-widest">Rolls</th>
+            <th class="text-right py-2 px-4 text-[10px] text-gray-600 font-semibold uppercase tracking-widest">Probability</th>
+            <th class="text-right py-2 px-4 text-[10px] text-gray-600 font-semibold uppercase tracking-widest">vs. Main</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-800/50">${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER: PROBABILITY CURVE CHART
+// ─────────────────────────────────────────────────────────────
+
+function renderChart(cumProb, params) {
+  const maxRolls = cumProb.length - 1;
+
+  // Downsample to ~50 data points so the chart stays clean at any gold value
+  const step = Math.max(1, Math.floor(maxRolls / 50));
+
+  const labels = [];
+  const data   = [];
+  for (let r = 0; r <= maxRolls; r += step) {
+    labels.push(`${r * 2}g`);
+    data.push(parseFloat((cumProb[r] * 100).toFixed(2)));
+  }
+  if (labels[labels.length - 1] !== `${maxRolls * 2}g`) {
+    labels.push(`${maxRolls * 2}g`);
+    data.push(parseFloat((cumProb[maxRolls] * 100).toFixed(2)));
+  }
+
+  // Find the index that corresponds to the main gold value
+  const mainLabel = `${params.gold}g`;
+  const mainIdx   = labels.indexOf(mainLabel);
+
+  const ctx = document.getElementById('probChart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 210);
+  grad.addColorStop(0, 'rgba(250,204,21,0.14)');
+  grad.addColorStop(1, 'rgba(250,204,21,0.00)');
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderColor: '#facc15',
+        backgroundColor: grad,
+        fill: true,
+        tension: 0.38,
+        borderWidth: 2,
+        pointRadius: (ctx) => ctx.dataIndex === mainIdx ? 7 : 0,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#facc15',
+        pointBorderColor: '#0d1117',
+        pointBorderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#161b22',
+          titleColor: '#e6edf3',
+          bodyColor: '#8b949e',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            title: (items) => `${items[0].label} spent`,
+            label: (item) => ` ${item.parsed.y.toFixed(1)}% cumulative probability`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#161b22', lineWidth: 0.5 },
+          ticks: { color: '#4b5563', font: { size: 10 }, maxTicksLimit: 11, maxRotation: 0 }
+        },
+        y: {
+          min: 0, max: 100,
+          grid: { color: '#161b22', lineWidth: 0.5 },
+          ticks: { color: '#4b5563', font: { size: 10 }, callback: (v) => v + '%' }
+        }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER: LEVEL ODDS REFERENCE TABLE
+// ─────────────────────────────────────────────────────────────
+
+function renderOddsTable() {
+  const sd       = activeSetData();
+  const curLevel = parseInt(document.getElementById('levelSelect').value);
+  const curCost  = activeCost;
+
+  document.getElementById('oddsSetLabel').textContent = sd.name;
+
+  const colColors = [
+    'text-gray-300',
+    'text-blue-400',
+    'text-yellow-400',
+    'text-purple-400',
+    'text-amber-300',
+  ];
+  const colLabels = ['1-Cost', '2-Cost', '3-Cost', '4-Cost', '5-Cost'];
+
+  const headerCells = colLabels
+    .map((l, i) => `<th class="text-right py-2.5 px-3 text-xs font-medium ${colColors[i]}">${l}</th>`)
+    .join('');
+
+  let bodyRows = '';
+  for (let lvl = 2; lvl <= 10; lvl++) {
+    const isActive = lvl === curLevel;
+    const rowBg    = isActive ? 'bg-gray-800/50' : '';
+    const lvlColor = isActive ? 'text-yellow-400 font-bold' : 'text-gray-600';
+
+    const cells = sd.levelOdds[lvl].map((odds, i) => {
+      const isHighlight = isActive && (i + 1 === curCost);
+      const dim  = odds === 0 ? 'text-gray-800' : colColors[i];
+      const ring = isHighlight
+        ? 'ring-1 ring-inset ring-yellow-400/40 rounded px-1.5 py-0.5'
+        : 'px-1.5';
+      return `<td class="text-right py-2.5 px-3 text-xs ${dim}">
+        <span class="${ring}">${(odds * 100).toFixed(0)}%</span>
+      </td>`;
+    }).join('');
+
+    bodyRows += `
+      <tr class="border-b border-gray-800/40 ${rowBg} transition-colors">
+        <td class="py-2.5 px-3 text-xs ${lvlColor} w-14">Lv.${lvl}</td>
+        ${cells}
+      </tr>`;
+  }
+
+  document.getElementById('oddsTable').innerHTML = `
+    <table class="w-full">
+      <thead>
+        <tr class="border-b border-gray-800">
+          <th class="text-left py-2.5 px-3 text-xs text-gray-600 font-medium w-14">Level</th>
+          ${headerCells}
+        </tr>
+      </thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// CALCULATION ORCHESTRATOR
+// ─────────────────────────────────────────────────────────────
+
+async function startSimulation() {
+  const setKey    = activeSetKey();
+  const level     = parseInt(document.getElementById('levelSelect').value);
+  const cost      = activeCost;
+  const gold      = parseInt(document.getElementById('goldInput').value) || 0;
+  const target    = parseInt(document.getElementById('targetInput').value) || 1;
+  const copiesOut = parseInt(document.getElementById('copiesOutInput').value) || 0;
+  const othersOut = parseInt(document.getElementById('othersOutInput').value) || 0;
+
+  const sd       = GAME_DATA[setKey];
+  const poolSize = sd.poolSizes[cost];
+
+  // ── Validation ──────────────────────────────────────────────
+  if (gold < 2) {
+    showError('You need at least 2 gold to roll.');
+    return;
+  }
+  if (copiesOut >= poolSize) {
+    showError(`All ${poolSize} copies of this unit are already out of the pool.`);
+    return;
+  }
+  if (copiesOut + target > poolSize) {
+    const left = poolSize - copiesOut;
+    showError(`Only ${left} cop${left === 1 ? 'y' : 'ies'} remain in pool — target of ${target} is unreachable.`);
+    return;
+  }
+
+  // ── Loading state ────────────────────────────────────────────
+  document.getElementById('mainCard').style.boxShadow = '';
+  document.getElementById('mainCard').innerHTML = `
+    <div class="flex flex-col items-center gap-3 text-gray-600">
+      <svg class="spin w-7 h-7 text-yellow-500/60" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
+        <path class="opacity-70" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+      </svg>
+      <span class="text-sm">Running 10,000 iterations…</span>
+    </div>
+  `;
+
+  // Yield to let the browser paint the loading state before blocking
+  await new Promise(resolve => setTimeout(resolve, 16));
+
+  // ── Run simulation ───────────────────────────────────────────
+  const maxGold  = gold + 20;
+  const cumProb  = runSimulation(setKey, level, cost, maxGold, target, copiesOut, othersOut);
+
+  const mainRolls = Math.floor(gold / 2);
+  const mainProb  = clampLookup(cumProb, mainRolls);
+
+  const params = { setKey, level, cost, gold, target, copiesOut, othersOut };
+
+  // ── Render results ───────────────────────────────────────────
+  renderMainCard(mainProb, params);
+  renderVarianceTable(cumProb, params);
+  renderChart(cumProb, params);
+  renderOddsTable();
+}
+
+function showError(msg) {
+  document.getElementById('mainCard').style.boxShadow = '';
+  document.getElementById('mainCard').innerHTML = `
+    <div class="text-center py-6 fade-up">
+      <p class="text-red-400 font-semibold text-sm">${msg}</p>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// EVENT WIRING
+// ─────────────────────────────────────────────────────────────
+
+document.getElementById('goldInput').addEventListener('input', () => {
+  const g = parseInt(document.getElementById('goldInput').value) || 0;
+  document.getElementById('rollsLabel').textContent = Math.floor(g / 2);
+});
+
+document.getElementById('setSelect').addEventListener('change', () => {
+  renderPoolInfo();
+  renderOddsTable();
+});
+
+document.getElementById('levelSelect').addEventListener('change', renderOddsTable);
+
+// Enter key on any field triggers simulation
+document.querySelectorAll('input, select').forEach(el => {
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter') startSimulation(); });
+});
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+
+renderCostButtons();
+renderPoolInfo();
+renderOddsTable();
+</script>
+</body>
+</html>
